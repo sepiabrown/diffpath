@@ -6,7 +6,42 @@ from torchvision.datasets import CelebA, CIFAR10, SVHN, DTD, CIFAR100
 from torch.utils.data import Subset, DataLoader
 from torchvision import transforms
 from mpi4py import MPI
+
 import argparse
+import os
+import subprocess
+import torchvision.transforms as transforms
+from torchvision.datasets import CelebA
+from torch.utils.data import DataLoader
+from pathlib import Path
+
+def download_celeba_alternative(data_dir):
+    """Attempts to download CelebA from alternative sources if it's not found."""
+    celeba_path = Path(data_dir) / "celeba"
+    img_path = celeba_path / "img_align_celeba"
+    attr_path = celeba_path / "list_attr_celeba.csv"
+
+    if img_path.exists() and attr_path.exists():
+        print("CelebA dataset found locally. Skipping download.")
+        return
+
+    print("Dataset not found. Attempting alternative sources...")
+
+    # Try downloading from Kaggle
+    try:
+        print("Trying to download from Kaggle...")
+        subprocess.run(
+            ["kaggle", "datasets", "download", "jessicali9530/celeba-dataset", "-p", str(celeba_path), "--unzip"],
+            check=True
+        )
+        print("CelebA downloaded successfully from Kaggle.")
+        return
+    except Exception as e:
+        print("Kaggle download failed:", str(e))
+
+    # Try downloading from Academic Torrents (if the user has a torrent client installed)
+    print("Please try downloading manually from Academic Torrents: https://academictorrents.com/details/874b1c10ebc3abf8d365b3b5b70c7588b2218d28")
+    print("After downloading, extract the files into:", celeba_path)
 
 
 def get_interpolation_mode(mode):
@@ -48,13 +83,16 @@ def yield_(loader):
 
 
 def load_celeba(data_dir, batch_size, image_size, train=False, interpolation_mode='bilinear', shuffle=True):
+    # Ensure dataset is available
+    download_celeba_alternative(data_dir)
+
     transform = transforms.Compose([
         transforms.CenterCrop(140),
         transforms.Resize((image_size, image_size), interpolation=get_interpolation_mode(interpolation_mode)),
         transforms.ToTensor(),
         transforms.Normalize((.5, .5, .5), (.5, .5, .5))
     ])
-    dataset = CelebA(data_dir, download=True, transform=transform, split='train' if train else 'test')
+    dataset = CelebA(data_dir, download=False, transform=transform, split='train' if train else 'test')
     subset = build_subset_per_process(dataset)
     loader = DataLoader(subset, batch_size=batch_size, shuffle=shuffle, num_workers=1, drop_last=False)
     return loader
