@@ -170,20 +170,31 @@
 
       # Make hello runnable with `nix run`
       apps.x86_64-linux = {
-        default = self.apps.x86_64-linux.example;
-        # hello = {
-        #   type = "app";
-        #   program = "${self.packages.x86_64-linux.default}/bin/hello";
-        # };
-        example = {
+        default = self.apps.x86_64-linux.multi-gpu;
+        train = {
+          type = "app";
+          program = "${self.packages.x86_64-linux.default}/bin/train_script";
+        };
+        single-gpu = {
           type = "app";
           program = "${pkgs.writeShellApplication {
             name = "example-wrapper";
             runtimeInputs = [ self.packages.x86_64-linux.default ];
             text = ''
-              ${./data/get_cifar10.sh}
               export NCCL_P2P_DISABLE="1" NCCL_IB_DISABLE="1"
-              exec example "$@"
+              train_script --config configs/train_config.yaml --data_dir data --dataset svhn
+            '';
+            inheritPath = true;
+          }}/bin/example-wrapper";
+        };
+        multi-gpu = {
+          type = "app";
+          program = "${pkgs.writeShellApplication {
+            name = "example-wrapper";
+            runtimeInputs = [ self.packages.x86_64-linux.default ];
+            text = ''
+              export NCCL_P2P_DISABLE="1" NCCL_IB_DISABLE="1"
+              torchrun --standalone --nproc_per_node=2 ${self.packages.x86_64-linux.default}/bin/train_script --config configs/train_config.yaml --data_dir data --dataset svhn
             '';
             inheritPath = true;
           }}/bin/example-wrapper";
@@ -273,7 +284,7 @@
             # Build virtual environment, with local packages being editable.
             #
             # Enable all optional dependencies for development.
-            virtualenv = editablePythonSet.mkVirtualEnv "denoising_diffusion_pytorch-dev-env" workspace.deps.all;
+            virtualenv = editablePythonSet.mkVirtualEnv "diffpath-dev-env" workspace.deps.all;
 
           in
           pkgs.mkShell {
@@ -299,7 +310,7 @@
               unset PYTHONPATH
 
               # Get repository root using git. This is expanded at runtime by the editable `.pth` machinery.
-              export REPO_ROOT=$(git rev-parse --show-toplevel)  NCCL_P2P_DISABLE="1" NCCL_IB_DISABLE="1"
+              export REPO_ROOT=$(git rev-parse --show-toplevel) NCCL_P2P_DISABLE="1" NCCL_IB_DISABLE="1"
             '';
           };
       };

@@ -58,7 +58,7 @@ dependencies = [
 ]
 
 [project.scripts]
-train = "train:main"
+train_script = "train:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -70,4 +70,4 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["improved_diffusion"]
+packages = ["."]

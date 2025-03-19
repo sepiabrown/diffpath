@@ -32,7 +32,7 @@ def main():
     for arg_name, arg_value in vars(config).items():
         setattr(args, arg_name, arg_value)
 
-    dist_util.setup_dist(1)
+    dist_util.setup_dist(0)
     timestamp = datetime.now().strftime("%Y_%m_%d_%H%M%S")
     logger.configure(os.path.join("results", args.dataset, timestamp))
     
