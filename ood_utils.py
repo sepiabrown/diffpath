@@ -10,38 +10,46 @@ from mpi4py import MPI
 import argparse
 import os
 import subprocess
-import torchvision.transforms as transforms
-from torchvision.datasets import CelebA
-from torch.utils.data import DataLoader
 from pathlib import Path
+import shutil
+import requests
+from zipfile import ZipFile
+from io import BytesIO
 
 def download_celeba_alternative(data_dir):
     """Attempts to download CelebA from alternative sources if it's not found."""
     celeba_path = Path(data_dir) / "celeba"
     img_path = celeba_path / "img_align_celeba"
-    attr_path = celeba_path / "list_attr_celeba.csv"
 
-    if img_path.exists() and attr_path.exists():
+    if img_path.exists():
         print("CelebA dataset found locally. Skipping download.")
         return
 
     print("Dataset not found. Attempting alternative sources...")
 
-    # Try downloading from Kaggle
     try:
-        print("Trying to download from Kaggle...")
-        subprocess.run(
-            ["kaggle", "datasets", "download", "jessicali9530/celeba-dataset", "-p", str(celeba_path), "--unzip"],
-            check=True
-        )
-        print("CelebA downloaded successfully from Kaggle.")
+        print("Trying to download and extract ...")
+        url = "https://cseweb.ucsd.edu/~weijian/static/datasets/celeba/img_align_celeba.zip"
+        response = requests.get(url, stream=True)
+        response.raise_for_status()  # Ensure the download succeeded
+
+        with ZipFile(BytesIO(response.content)) as zfile:
+            zfile.extractall(celeba_path)
+
+        print("Dataset downloaded and extracted successfully.")
+
+        # Move files from nested folder to desired folder structure
+        nested_dir = celeba_path / "img_align_celeba" / "img_align_celeba"
+
+        if nested_dir.exists():
+            for item in nested_dir.iterdir():
+                shutil.move(str(item), celeba_path / "img_align_celeba")
+            nested_dir.rmdir()  # Remove empty nested directory
+
+        print("CelebA downloaded successfully.")
         return
     except Exception as e:
-        print("Kaggle download failed:", str(e))
-
-    # Try downloading from Academic Torrents (if the user has a torrent client installed)
-    print("Please try downloading manually from Academic Torrents: https://academictorrents.com/details/874b1c10ebc3abf8d365b3b5b70c7588b2218d28")
-    print("After downloading, extract the files into:", celeba_path)
+        print("CelebA download failed:", str(e))
 
 
 def get_interpolation_mode(mode):
@@ -70,7 +78,7 @@ def build_subset_per_process(dataset):
     n_processes  = MPI.COMM_WORLD.Get_size()
     n_current_rank = MPI.COMM_WORLD.Get_rank()
     n_indices = torch.arange(0, len(dataset), dtype=int)
-    
+
     indices_chunks = torch.chunk(n_indices, chunks=n_processes)
     indices_for_current_rank = indices_chunks[n_current_rank]
     subset = Subset(dataset, indices_for_current_rank)
@@ -170,7 +178,7 @@ def load_cifar100(data_dir, batch_size, image_size, train=False, interpolation_m
 
 
 def load_data(dataset, data_dir, batch_size, image_size, train, interpolation_mode='bilinear', shuffle=True):
-    
+
     if dataset == "cifar10":
         dataloader = load_cifar10(data_dir, batch_size, image_size, train, interpolation_mode, shuffle)
     elif dataset == "celeba":

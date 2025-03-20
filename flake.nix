@@ -51,8 +51,6 @@
         # };
       };
 
-      hacks = pkgs.callPackages pyproject-nix.build.hacks {};
-
       # Extend generated overlay with build fixups
       #
       # Uv2nix can only work with what it has, and uv.lock is missing essential metadata to perform some builds.
@@ -60,48 +58,31 @@
       # See:
       # - https://pyproject-nix.github.io/uv2nix/FAQ.html
       cudaLibs = [
-        pkgs.cudaPackages.cudnn
-        pkgs.cudaPackages.nccl
-        pkgs.cudaPackages.cutensor
-        pkgs.cudaPackages.cusparselt
-        pkgs.cudaPackages.libcublas
-        pkgs.cudaPackages.libcusparse
-        pkgs.cudaPackages.libcusolver
-        pkgs.cudaPackages.libcurand
-        pkgs.cudaPackages.cuda_gdb
-        pkgs.cudaPackages.cuda_nvcc
-        pkgs.cudaPackages.cuda_cudart
-        (lib.getDev pkgs.cudaPackages.cudatoolkit)
-        (lib.getDev pkgs.cudaPackages_11_7.cudatoolkit)
+        (lib.getOutput "stubs" pkgs.cudaPackages_11_7.cuda_cudart)
+      ] ++ map lib.getLib [
+        pkgs.cudaPackages_11_7.nccl
+        pkgs.cudaPackages_11_7.cudatoolkit
         pkgs.cudaPackages_11_7.cuda_cupti
         pkgs.cudaPackages_11_7.cudnn
       ];
 
-      cudaLDLibraryPath = pkgs.lib.makeLibraryPath cudaLibs;
-
       pyprojectOverrides = final: prev: {
         torch = prev.torch.overrideAttrs (old: {
-          buildInputs = (old.buildInputs or [ ]) ++ cudaLibs;
+          nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ cudaLibs;
         });
         torchvision = prev.torchvision.overrideAttrs (old: {
-          buildInputs = (old.buildInputs or [ ]) ++ cudaLibs;# ++ [ final.torch ];
+          nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ cudaLibs;# ++ [ final.torch ];
 
           postFixup = ''
             addAutoPatchelfSearchPath "${final.torch}"
           '';
         });
         nvidia-cusolver-cu11 = prev.nvidia-cusolver-cu11.overrideAttrs (old: {
-          buildInputs = (old.buildInputs or [ ]) ++ cudaLibs;
+          nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ cudaLibs;
         });
         nvidia-cudnn-cu11 = prev.nvidia-cudnn-cu11.overrideAttrs (old: {
-          buildInputs = (old.buildInputs or [ ]) ++ cudaLibs;
+          nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ cudaLibs;
         });
-        # nvidia-cusolver-cu12 = prev.nvidia-cusolver-cu12.overrideAttrs (old: {
-        #   buildInputs = (old.buildInputs or []) ++ cudaLibs;
-        # });
-        # nvidia-cusparse-cu12 = prev.nvidia-cusparse-cu12.overrideAttrs (old: {
-        #   buildInputs = (old.buildInputs or []) ++ cudaLibs;
-        # });
         mpi4py = prev.mpi4py.overrideAttrs (old: {
           nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
             (lib.getDev pkgs.mpich)
@@ -160,7 +141,7 @@
 
     in
     {
-      inherit pythonSet;
+      inherit pkgs;
       # Package a virtual environment as our main application.
       #
       # Enable no optional dependencies for production build.
@@ -170,7 +151,7 @@
 
       # Make hello runnable with `nix run`
       apps.x86_64-linux = {
-        default = self.apps.x86_64-linux.multi-gpu;
+        default = self.apps.x86_64-linux.single-gpu;
         train = {
           type = "app";
           program = "${self.packages.x86_64-linux.default}/bin/train_script";
@@ -182,19 +163,19 @@
             runtimeInputs = [ self.packages.x86_64-linux.default ];
             text = ''
               export NCCL_P2P_DISABLE="1" NCCL_IB_DISABLE="1"
-              train_script --config configs/train_config.yaml --data_dir data --dataset svhn
+              train_script --config configs/train_config.yaml --data_dir data --dataset celeba
             '';
             inheritPath = true;
           }}/bin/example-wrapper";
         };
-        multi-gpu = {
+        multi-gpus = {
           type = "app";
           program = "${pkgs.writeShellApplication {
             name = "example-wrapper";
             runtimeInputs = [ self.packages.x86_64-linux.default ];
             text = ''
               export NCCL_P2P_DISABLE="1" NCCL_IB_DISABLE="1"
-              torchrun --standalone --nproc_per_node=2 ${self.packages.x86_64-linux.default}/bin/train_script --config configs/train_config.yaml --data_dir data --dataset svhn
+              torchrun --standalone --nproc_per_node=2 ${self.packages.x86_64-linux.default}/bin/train_script --config configs/train_config.yaml --data_dir data --dataset celeba
             '';
             inheritPath = true;
           }}/bin/example-wrapper";
@@ -291,7 +272,6 @@
             packages = [
               virtualenv
               pkgs.uv
-              pkgs.kaggle
             ];
 
             env = {

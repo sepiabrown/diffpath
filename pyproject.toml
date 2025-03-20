@@ -1,7 +1,7 @@
 [project]
 name = "diffpath"
 version = "0.1.0"
-description = "Add your description here"
+description = "Out-of-Distribution Detection with a Single Unconditional Diffusion Model"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
@@ -54,7 +54,6 @@ dependencies = [
     "hatchling",
     "libcst",
     "wandb",
-    "kaggle",
 ]
 
 [project.scripts]

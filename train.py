@@ -35,7 +35,7 @@ def main():
     dist_util.setup_dist(0)
     timestamp = datetime.now().strftime("%Y_%m_%d_%H%M%S")
     logger.configure(os.path.join("results", args.dataset, timestamp))
-    
+
     # log hyperparameters and running command
     if dist.get_rank() == 0:
         command_line = ' '.join(sys.argv)
@@ -50,7 +50,7 @@ def main():
     )
     model.to(dist_util.dev())
     schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion)
-    
+
     logger.log("creating data loader...")
     data = load_data(
         dataset=args.dataset,
