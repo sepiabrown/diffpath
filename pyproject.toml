@@ -58,6 +58,8 @@ dependencies = [
 
 [project.scripts]
 train_script = "train:main"
+save_train_statistics_script = "save_train_statistics:main"
+save_test_statistics_script = "save_test_statistics:main"
 
 [build-system]
 requires = ["hatchling"]

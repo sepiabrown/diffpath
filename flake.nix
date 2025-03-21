@@ -159,26 +159,75 @@
         single-gpu = {
           type = "app";
           program = "${pkgs.writeShellApplication {
-            name = "example-wrapper";
+            name = "single-gpu";
             runtimeInputs = [ self.packages.x86_64-linux.default ];
             text = ''
               export NCCL_P2P_DISABLE="1" NCCL_IB_DISABLE="1"
-              train_script --config configs/train_config.yaml --data_dir data --dataset celeba
+              exec train_script \
+                --config configs/train_config.yaml \
+                --data_dir data \
+                --dataset svhn
             '';
             inheritPath = true;
-          }}/bin/example-wrapper";
+          }}/bin/single-gpu";
         };
         multi-gpus = {
           type = "app";
           program = "${pkgs.writeShellApplication {
-            name = "example-wrapper";
+            name = "multi-gpus";
             runtimeInputs = [ self.packages.x86_64-linux.default ];
             text = ''
               export NCCL_P2P_DISABLE="1" NCCL_IB_DISABLE="1"
-              torchrun --standalone --nproc_per_node=2 ${self.packages.x86_64-linux.default}/bin/train_script --config configs/train_config.yaml --data_dir data --dataset celeba
+              exec torchrun \
+                --standalone \
+                --nproc_per_node=2 \
+                ${self.packages.x86_64-linux.default}/bin/train_script \
+                --config configs/train_config.yaml \
+                --data_dir data \
+                --dataset celeba
             '';
             inheritPath = true;
-          }}/bin/example-wrapper";
+          }}/bin/multi-gpus";
+        };
+        save-train-statistics = {
+          type = "app";
+          program = "${pkgs.writeShellApplication {
+            name = "save-train-statistics";
+            runtimeInputs = [ self.packages.x86_64-linux.default ];
+            text = ''
+              export NCCL_P2P_DISABLE="1" NCCL_IB_DISABLE="1"
+              exec save_train_statistics_script \
+                --model celeba \
+                --data_dir data \
+                --model_path results/celeba/2025_03_21_025840/model099999.pt \
+                --config configs/celeba_model_config.yaml \
+                --batch_size 256 \
+                --n_ddim_steps 10 \
+                --device 0 \
+                --dataset "$@"
+            '';
+            inheritPath = true;
+          }}/bin/save-train-statistics";
+        };
+        save-test-statistics = {
+          type = "app";
+          program = "${pkgs.writeShellApplication {
+            name = "save-test-statistics";
+            runtimeInputs = [ self.packages.x86_64-linux.default ];
+            text = ''
+              export NCCL_P2P_DISABLE="1" NCCL_IB_DISABLE="1"
+              exec save_test_statistics_script \
+                --model celeba \
+                --data_dir data \
+                --model_path results/celeba/2025_03_21_025840/model099999.pt \
+                --config configs/celeba_model_config.yaml \
+                --batch_size 256 \
+                --n_ddim_steps 10 \
+                --device 0 \
+                --dataset "$@"
+            '';
+            inheritPath = true;
+          }}/bin/save-test-statistics";
         };
       };
 
